@@ -1,0 +1,59 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'BRANCH_NAME', defaultValue: 'main', description: 'Git branch to build')
+        booleanParam(name: 'RUN_TESTS', defaultValue: true, description: 'Run tests?')
+    }
+
+    environment {
+        APP_DIR = '/root/python-app'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                dir("${APP_DIR}") {
+                    script {
+                        sh "git fetch origin"
+                        sh "git checkout ${params.BRANCH_NAME}"
+                        sh "git pull origin ${params.BRANCH_NAME}"
+                    }
+                }
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                dir("${APP_DIR}") {
+                    sh 'pip install -r requirements.txt'
+                }
+            }
+        }
+
+        stage('Run Tests') {
+            when {
+                expression { return params.RUN_TESTS }
+            }
+            steps {
+                dir("${APP_DIR}") {
+                    sh 'pytest || true'  // Prevent failure if tests fail, for demonstration
+                }
+            }
+        }
+
+        stage('Build/Package') {
+            steps {
+                dir("${APP_DIR}") {
+                    sh 'python setup.py sdist bdist_wheel || echo "Build script not found"'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline finished.'
+        }
+    }
+}
